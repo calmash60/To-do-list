@@ -34,7 +34,8 @@ const ACCENTS = [
 const STORAGE_KEY = 'modern_todo_tasks';
 const POINTS_KEY = 'modern_todo_points';
 const CUSTOM_KEY = 'modern_todo_custom';
-
+const NOTIF_KEY = 'modern_todo_notif_perm';
+const NOTIFIED_TASKS_KEY = 'modern_todo_notified_tasks';
 // ---- DOM Elements ----
 const todoForm = document.getElementById('todo-form');
 const todoInput = document.getElementById('todo-input');
@@ -58,27 +59,66 @@ const progressText = document.getElementById('progress-text');
 let activeTab = 'all';
 let searchQuery = '';
 let notificationPermission = false;
+let alreadyNotified = {}; // task.id: true
 
 // ---- Utility Functions ----
 function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  } catch (e) {}
 }
 function loadTasks() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  tasks = data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    tasks = data ? JSON.parse(data) : [];
+  } catch (e) { tasks = []; }
 }
 function savePoints() {
-  localStorage.setItem(POINTS_KEY, String(points));
+  try {
+    localStorage.setItem(POINTS_KEY, String(points));
+  } catch (e) {}
 }
 function loadPoints() {
-  points = parseInt(localStorage.getItem(POINTS_KEY) || '0', 10);
+  try {
+    points = parseInt(localStorage.getItem(POINTS_KEY) || '0', 10);
+  } catch (e) { points = 0; }
 }
 function saveCustom() {
-  localStorage.setItem(CUSTOM_KEY, JSON.stringify(customizations));
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(customizations));
+  } catch (e) {}
 }
 function loadCustom() {
-  const data = localStorage.getItem(CUSTOM_KEY);
-  if (data) customizations = JSON.parse(data);
+  try {
+    const data = localStorage.getItem(CUSTOM_KEY);
+    if (data) customizations = JSON.parse(data);
+  } catch (e) {}
+}
+function saveNotifPerm() {
+  try {
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(notificationPermission));
+  } catch (e) {}
+}
+function loadNotifPerm() {
+  try {
+    const d = localStorage.getItem(NOTIF_KEY);
+    notificationPermission = d ? JSON.parse(d) : false;
+  } catch (e) { notificationPermission = false; }
+}
+function saveAlreadyNotified() {
+  try {
+    localStorage.setItem(NOTIFIED_TASKS_KEY, JSON.stringify(alreadyNotified));
+  } catch (e) {}
+}
+function loadAlreadyNotified() {
+  try {
+    const d = localStorage.getItem(NOTIFIED_TASKS_KEY);
+    alreadyNotified = d ? JSON.parse(d) : {};
+  } catch (e) { alreadyNotified = {}; }
+}
+function resetNotificationCache() {
+  alreadyNotified = {};
+  saveAlreadyNotified();
 }
 function uid() {
   return '_' + Math.random().toString(36).slice(2, 10);
@@ -107,13 +147,16 @@ function recurrenceText(r) {
 }
 function notify(title, body) {
   if (notificationPermission) {
-    new Notification(title, { body });
+    try {
+      new Notification(title, { body });
+    } catch (e) {}
   }
 }
 function requestNotificationPermission() {
   if ('Notification' in window) {
     Notification.requestPermission().then(p => {
       notificationPermission = (p === 'granted');
+      saveNotifPerm();
     });
   }
 }
@@ -137,7 +180,7 @@ function renderTasks() {
   // Search
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
-    filtered = filtered.filter(t => t.text.toLowerCase().includes(q));
+    filtered = filtered.filter(t => ((t.text || '').toLowerCase().includes(q)));
   }
   // Sort: incomplete first, then closest due, then newest
   filtered = filtered.slice().sort((a, b) => {
@@ -277,10 +320,23 @@ function editTask(span, task) {
   input.maxLength = 120;
   input.className = 'todo-text';
   input.style.width = '96%';
+
+  let finished = false;
+  function done() {
+    if (finished) return;
+    finished = true;
+    let val = input.value.trim();
+    if (!val) val = task.text;
+    task.text = val;
+    saveTasks();
+    renderTasks();
+  }
+
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
       done();
     } else if (e.key === 'Escape') {
+      finished = true;
       span.style.display = '';
       input.remove();
     }
@@ -289,14 +345,6 @@ function editTask(span, task) {
   span.parentNode.replaceChild(input, span);
   input.focus();
   input.select();
-
-  function done() {
-    let val = input.value.trim();
-    if (!val) val = task.text;
-    task.text = val;
-    saveTasks();
-    renderTasks();
-  }
 }
 
 function deleteTask(id) {
@@ -323,19 +371,41 @@ function scheduleRecurring(task) {
     dt.setMonth(dt.getMonth() + 1);
     nextDate = dt.toISOString().slice(0, 10);
   }
-  // Add the next occurrence as a new task
+  // Add the next occurrence as a new task (do not mark as completed)
   if (nextDate) {
     addTask(task.text, nextDate, task.repeat);
   }
 }
 
 // ---- Points & Customization ----
+// New: Track unlocked features so user doesn't lose access after spending points
+let unlockedThemes = [];
+let unlockedFonts = [];
+let unlockedAccents = [];
+
+function saveUnlocks() {
+  try {
+    localStorage.setItem('modern_todo_unlocked_themes', JSON.stringify(unlockedThemes));
+    localStorage.setItem('modern_todo_unlocked_fonts', JSON.stringify(unlockedFonts));
+    localStorage.setItem('modern_todo_unlocked_accents', JSON.stringify(unlockedAccents));
+  } catch (e) {}
+}
+function loadUnlocks() {
+  try {
+    unlockedThemes = JSON.parse(localStorage.getItem('modern_todo_unlocked_themes') || '[]');
+    unlockedFonts = JSON.parse(localStorage.getItem('modern_todo_unlocked_fonts') || '[]');
+    unlockedAccents = JSON.parse(localStorage.getItem('modern_todo_unlocked_accents') || '[]');
+  } catch (e) {
+    unlockedThemes = [];
+    unlockedFonts = [];
+    unlockedAccents = [];
+  }
+}
 function earnPoints(n) {
   points += n;
   savePoints();
   renderPoints();
 }
-
 function spendPoints(n) {
   if (points >= n) {
     points -= n;
@@ -347,17 +417,40 @@ function spendPoints(n) {
   return false;
 }
 
+function unlockTheme(key) {
+  if (!unlockedThemes.includes(key)) {
+    unlockedThemes.push(key);
+    saveUnlocks();
+  }
+}
+function unlockFont(family) {
+  if (!unlockedFonts.includes(family)) {
+    unlockedFonts.push(family);
+    saveUnlocks();
+  }
+}
+function unlockAccent(color) {
+  if (!unlockedAccents.includes(color)) {
+    unlockedAccents.push(color);
+    saveUnlocks();
+  }
+}
+
 function renderCustomizationOptions() {
   // Theme options
   themeOptions.innerHTML = '';
   THEMES.forEach(t => {
+    const unlocked = unlockedThemes.includes(t.key) || points >= t.unlock;
     const btn = document.createElement('button');
     btn.className = 'theme-option' + (customizations.theme === t.key ? ' selected' : '');
-    btn.disabled = points < t.unlock;
+    btn.disabled = !unlocked;
     btn.textContent = `${t.name}${t.unlock ? ` (${t.unlock}⭐)` : ""}`;
     btn.onclick = (e) => {
       e.preventDefault();
-      if (points >= t.unlock) {
+      if (unlocked || points >= t.unlock) {
+        if (!unlocked) {
+          if (spendPoints(t.unlock)) unlockTheme(t.key);
+        }
         customizations.theme = t.key;
         saveCustom();
         applyCustomizations();
@@ -371,13 +464,17 @@ function renderCustomizationOptions() {
   // Font options
   fontOptions.innerHTML = '';
   FONTS.forEach(f => {
+    const unlocked = unlockedFonts.includes(f.family) || points >= f.unlock;
     const btn = document.createElement('button');
     btn.className = 'font-option' + (customizations.font === f.family ? ' selected' : '');
-    btn.disabled = points < f.unlock;
+    btn.disabled = !unlocked;
     btn.textContent = `${f.name}${f.unlock ? ` (${f.unlock}⭐)` : ""}`;
     btn.onclick = (e) => {
       e.preventDefault();
-      if (points >= f.unlock) {
+      if (unlocked || points >= f.unlock) {
+        if (!unlocked) {
+          if (spendPoints(f.unlock)) unlockFont(f.family);
+        }
         customizations.font = f.family;
         saveCustom();
         applyCustomizations();
@@ -391,14 +488,18 @@ function renderCustomizationOptions() {
   // Accent options
   accentOptions.innerHTML = '';
   ACCENTS.forEach(a => {
+    const unlocked = unlockedAccents.includes(a.color) || points >= a.unlock;
     const btn = document.createElement('button');
     btn.className = 'accent-option' + (customizations.accent === a.color ? ' selected' : '');
-    btn.disabled = points < a.unlock;
+    btn.disabled = !unlocked;
     btn.title = a.name + (a.unlock ? ` (${a.unlock}⭐)` : '');
     btn.innerHTML = `<span class="color-block" style="background:${a.color};"></span>`;
     btn.onclick = (e) => {
       e.preventDefault();
-      if (points >= a.unlock) {
+      if (unlocked || points >= a.unlock) {
+        if (!unlocked) {
+          if (spendPoints(a.unlock)) unlockAccent(a.color);
+        }
         customizations.accent = a.color;
         saveCustom();
         applyCustomizations();
@@ -529,43 +630,13 @@ darkModeToggle.addEventListener('click', function() {
 // ---- Notifications ----
 function handleDueNotifications() {
   if (!notificationPermission) return;
-  // Notify for any tasks due today (on page load)
-  tasks.forEach(task => {
-    if (isDueToday(task) && !task.completed) {
-      notify("📅 Task Due!", task.text);
-    }
-  });
-}
 
-// ---- Initialization ----
-function init() {
-  loadTasks();
-  loadPoints();
-  loadCustom();
-  renderPoints();
-  applyCustomizations();
-  renderTasks();
-  requestNotificationPermission();
-  handleDueNotifications();
-
-  // Load Google Fonts for custom fonts
-  let fontLinks = '';
-  FONTS.forEach(f => {
-    if (f.family === 'Roboto') fontLinks += '@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap");';
-    if (f.family === 'Fira Sans') fontLinks += '@import url("https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;700&display=swap");';
-    if (f.family === 'Caveat') fontLinks += '@import url("https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap");';
-  });
-  if (fontLinks) {
-    const style = document.createElement('style');
-    style.innerHTML = fontLinks;
-    document.head.appendChild(style);
+  const today = todayStr();
+  // Reset notification cache if date has changed
+  if (alreadyNotified._date !== today) {
+    alreadyNotified = { _date: today };
+    saveAlreadyNotified();
   }
-}
-init();
-
-// ---- Recurring Notifications (poll every 30s) ----
-setInterval(() => {
-  handleDueNotifications();
-}, 30000);
-
-});
+  tasks.forEach(task => {
+    if (isDueToday(task) && !task.completed && !alreadyNotified[task.id]) {
+      notify("📅 Task Due!"
