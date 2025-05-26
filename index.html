@@ -2,18 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>To-Do List App</title>
+  <title>Modern To-Do List</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:,">
 </head>
 <body>
-  <div class="container">
-    <h1>To-Do List</h1>
-    <form id="todo-form">
-      <input type="text" id="todo-input" placeholder="Add a new task..." autocomplete="off" required />
-      <button type="submit">Add</button>
-    </form>
+  <div class="app-container">
+    <header>
+      <h1>To-Do List</h1>
+      <div class="points">
+        <span id="points"></span>
+        <button id="customize-btn" title="Customize App">🎨</button>
+        <button id="dark-mode-toggle" title="Toggle Dark Mode">🌙</button>
+      </div>
+    </header>
+    <section class="todo-controls">
+      <form id="todo-form" autocomplete="off">
+        <input type="text" id="todo-input" placeholder="Add a new task..." required maxlength="120" />
+        <input type="date" id="todo-due" title="Due date" />
+        <select id="todo-repeat" title="Recurrence">
+          <option value="">No repeat</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <button type="submit">Add</button>
+      </form>
+      <input type="search" id="search-input" placeholder="Search tasks..." />
+      <nav class="tabs">
+        <button data-tab="all" class="tab active">All</button>
+        <button data-tab="active" class="tab">Active</button>
+        <button data-tab="completed" class="tab">Completed</button>
+        <button data-tab="due" class="tab">Due</button>
+        <button data-tab="overdue" class="tab">Overdue</button>
+      </nav>
+    </section>
     <ul id="todo-list"></ul>
+    <div id="no-tasks" style="display:none;">No tasks found.</div>
+    <footer>
+      <span class="progress-text" id="progress-text"></span>
+    </footer>
   </div>
+
+  <!-- Customization Modal -->
+  <div id="customize-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="close" id="customize-close">&times;</span>
+      <h2>Customize App</h2>
+      <div class="customize-section">
+        <label>Theme:</label>
+        <div id="theme-options">
+          <!-- Theme options will be inserted by JS -->
+        </div>
+      </div>
+      <div class="customize-section">
+        <label>Font:</label>
+        <div id="font-options">
+          <!-- Font options will be inserted by JS -->
+        </div>
+      </div>
+      <div class="customize-section">
+        <label>Accent Color:</label>
+        <div id="accent-options">
+          <!-- Accent color options will be inserted by JS -->
+        </div>
+      </div>
+      <div class="customize-section">
+        <strong>Tip:</strong> Earn points for completing tasks to unlock more options!
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
