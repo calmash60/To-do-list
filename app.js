@@ -1,5 +1,7 @@
 // Modern To-Do List App with Advanced Features
+window.addEventListener("DOMContentLoaded", function() {
 
+// ---- Data Structures ----
 let tasks = [];
 let points = 0;
 let customizations = {
@@ -28,10 +30,12 @@ const ACCENTS = [
   { color: '#f7b267', name: 'Gold', unlock: 30 }
 ];
 
+// ---- Storage Keys ----
 const STORAGE_KEY = 'modern_todo_tasks';
 const POINTS_KEY = 'modern_todo_points';
 const CUSTOM_KEY = 'modern_todo_custom';
 
+// ---- DOM Elements ----
 const todoForm = document.getElementById('todo-form');
 const todoInput = document.getElementById('todo-input');
 const todoDue = document.getElementById('todo-due');
@@ -50,10 +54,12 @@ const accentOptions = document.getElementById('accent-options');
 const noTasks = document.getElementById('no-tasks');
 const progressText = document.getElementById('progress-text');
 
+// ---- State ----
 let activeTab = 'all';
 let searchQuery = '';
 let notificationPermission = false;
 
+// ---- Utility Functions ----
 function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
@@ -112,11 +118,13 @@ function requestNotificationPermission() {
   }
 }
 
+// ---- Render Functions ----
 function renderPoints() {
   pointsEl.textContent = `⭐ ${points}`;
 }
 function renderTasks() {
   let filtered = tasks;
+  // Tabs
   if (activeTab === 'active') {
     filtered = filtered.filter(t => !t.completed);
   } else if (activeTab === 'completed') {
@@ -126,10 +134,12 @@ function renderTasks() {
   } else if (activeTab === 'overdue') {
     filtered = filtered.filter(isOverdue);
   }
+  // Search
   if (searchQuery.trim()) {
     const q = searchQuery.trim().toLowerCase();
     filtered = filtered.filter(t => t.text.toLowerCase().includes(q));
   }
+  // Sort: incomplete first, then closest due, then newest
   filtered = filtered.slice().sort((a, b) => {
     if (a.completed !== b.completed) return a.completed - b.completed;
     if (a.due && b.due) return new Date(a.due) - new Date(b.due);
@@ -147,6 +157,7 @@ function renderTasks() {
     li.setAttribute('draggable', 'true');
     li.dataset.id = task.id;
 
+    // Checkbox
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.className = 'todo-check';
@@ -154,6 +165,7 @@ function renderTasks() {
     check.addEventListener('change', () => toggleComplete(task.id));
     li.appendChild(check);
 
+    // Editable text
     const span = document.createElement('span');
     span.className = 'todo-text';
     span.tabIndex = 0;
@@ -162,6 +174,7 @@ function renderTasks() {
     span.addEventListener('dblclick', () => editTask(span, task));
     li.appendChild(span);
 
+    // Due date
     if (task.due) {
       const due = document.createElement('span');
       due.className = 'todo-date';
@@ -175,20 +188,24 @@ function renderTasks() {
       }
       li.appendChild(due);
     }
+    // Recurrence
     if (task.repeat) {
       const rep = document.createElement('span');
       rep.className = 'todo-repeat';
       rep.textContent = recurrenceText(task.repeat);
       li.appendChild(rep);
     }
+    // Actions
     const actions = document.createElement('span');
     actions.className = 'todo-actions';
+    // Edit button
     const editBtn = document.createElement('button');
     editBtn.className = 'action-btn';
     editBtn.innerHTML = '✏️';
     editBtn.title = 'Edit';
     editBtn.onclick = () => editTask(span, task);
     actions.appendChild(editBtn);
+    // Delete button
     const delBtn = document.createElement('button');
     delBtn.className = 'action-btn';
     delBtn.innerHTML = '✕';
@@ -201,6 +218,7 @@ function renderTasks() {
   });
 
   renderProgress();
+  // Re-enable drag and drop
   setupDragAndDrop();
 }
 
@@ -218,6 +236,7 @@ function renderProgress() {
   progressText.innerHTML = `<span style="color:${color}">${done}/${total} completed (${percent}%)</span>`;
 }
 
+// ---- Task Actions ----
 function addTask(text, due, repeat) {
   const task = {
     id: uid(),
@@ -236,11 +255,14 @@ function toggleComplete(id) {
   const task = tasks.find(t => t.id === id);
   if (!task) return;
   task.completed = !task.completed;
+  // Earn points!
   if (task.completed) {
     earnPoints(3 + (task.repeat ? 2 : 0));
+    // If recurring, auto-schedule next
     if (task.repeat) {
       scheduleRecurring(task);
     }
+    // Notification
     notify("🎉 Task Completed!", task.text);
   }
   saveTasks();
@@ -248,6 +270,7 @@ function toggleComplete(id) {
 }
 
 function editTask(span, task) {
+  // Inline edit
   const input = document.createElement('input');
   input.type = 'text';
   input.value = task.text;
@@ -300,11 +323,13 @@ function scheduleRecurring(task) {
     dt.setMonth(dt.getMonth() + 1);
     nextDate = dt.toISOString().slice(0, 10);
   }
+  // Add the next occurrence as a new task
   if (nextDate) {
     addTask(task.text, nextDate, task.repeat);
   }
 }
 
+// ---- Points & Customization ----
 function earnPoints(n) {
   points += n;
   savePoints();
@@ -323,13 +348,15 @@ function spendPoints(n) {
 }
 
 function renderCustomizationOptions() {
+  // Theme options
   themeOptions.innerHTML = '';
   THEMES.forEach(t => {
     const btn = document.createElement('button');
     btn.className = 'theme-option' + (customizations.theme === t.key ? ' selected' : '');
     btn.disabled = points < t.unlock;
     btn.textContent = `${t.name}${t.unlock ? ` (${t.unlock}⭐)` : ""}`;
-    btn.onclick = () => {
+    btn.onclick = (e) => {
+      e.preventDefault();
       if (points >= t.unlock) {
         customizations.theme = t.key;
         saveCustom();
@@ -341,13 +368,15 @@ function renderCustomizationOptions() {
     };
     themeOptions.appendChild(btn);
   });
+  // Font options
   fontOptions.innerHTML = '';
   FONTS.forEach(f => {
     const btn = document.createElement('button');
     btn.className = 'font-option' + (customizations.font === f.family ? ' selected' : '');
     btn.disabled = points < f.unlock;
     btn.textContent = `${f.name}${f.unlock ? ` (${f.unlock}⭐)` : ""}`;
-    btn.onclick = () => {
+    btn.onclick = (e) => {
+      e.preventDefault();
       if (points >= f.unlock) {
         customizations.font = f.family;
         saveCustom();
@@ -359,6 +388,7 @@ function renderCustomizationOptions() {
     };
     fontOptions.appendChild(btn);
   });
+  // Accent options
   accentOptions.innerHTML = '';
   ACCENTS.forEach(a => {
     const btn = document.createElement('button');
@@ -366,7 +396,8 @@ function renderCustomizationOptions() {
     btn.disabled = points < a.unlock;
     btn.title = a.name + (a.unlock ? ` (${a.unlock}⭐)` : '');
     btn.innerHTML = `<span class="color-block" style="background:${a.color};"></span>`;
-    btn.onclick = () => {
+    btn.onclick = (e) => {
+      e.preventDefault();
       if (points >= a.unlock) {
         customizations.accent = a.color;
         saveCustom();
@@ -381,12 +412,14 @@ function renderCustomizationOptions() {
 }
 
 function applyCustomizations() {
+  // Theme
   let theme = customizations.theme;
   if (theme === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
   } else {
     document.documentElement.setAttribute('data-theme', 'light');
   }
+  // Special themes: sunset, forest, ocean
   if (theme === 'sunset') {
     document.documentElement.setAttribute('data-theme', 'light');
     document.documentElement.style.setProperty('--background', '#ffecd2');
@@ -409,29 +442,38 @@ function applyCustomizations() {
     document.documentElement.style.setProperty('--accent', '#f7b267');
     document.documentElement.style.setProperty('--text', '#e5f7ff');
   } else {
+    // Reset to standard
     document.documentElement.style.removeProperty('--background');
     document.documentElement.style.removeProperty('--container-bg');
     document.documentElement.style.removeProperty('--primary');
     document.documentElement.style.removeProperty('--accent');
     document.documentElement.style.removeProperty('--text');
   }
+  // Font
   document.documentElement.style.setProperty('--font', `'${customizations.font}', Arial, sans-serif`);
+  // Accent color
   document.documentElement.style.setProperty('--accent', customizations.accent);
 }
 
+// ---- Drag and Drop ----
 function setupDragAndDrop() {
-  Sortable.create(todoList, {
-    animation: 150,
-    handle: '.todo-item',
-    onEnd: function(evt) {
-      const newOrder = Array.from(todoList.children).map(li => li.dataset.id);
-      tasks.sort((a, b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
-      saveTasks();
-      renderTasks();
-    }
-  });
+  if (window.Sortable && todoList && !todoList._sortableAttached) {
+    Sortable.create(todoList, {
+      animation: 150,
+      handle: '.todo-item',
+      onEnd: function(evt) {
+        // Rearrange tasks array to match new order
+        const newOrder = Array.from(todoList.children).map(li => li.dataset.id);
+        tasks.sort((a, b) => newOrder.indexOf(a.id) - newOrder.indexOf(b.id));
+        saveTasks();
+        renderTasks();
+      }
+    });
+    todoList._sortableAttached = true;
+  }
 }
 
+// ---- Search, Tabs, and Filtering ----
 searchInput.addEventListener('input', function() {
   searchQuery = this.value;
   renderTasks();
@@ -445,6 +487,7 @@ tabs.forEach(tab => {
   });
 });
 
+// ---- Form Submission ----
 todoForm.addEventListener('submit', function(e) {
   e.preventDefault();
   const text = todoInput.value.trim();
@@ -457,6 +500,7 @@ todoForm.addEventListener('submit', function(e) {
   todoRepeat.value = '';
 });
 
+// ---- Modal for Customization ----
 customizeBtn.addEventListener('click', function() {
   customizeModal.style.display = 'flex';
   renderCustomizationOptions();
@@ -470,6 +514,7 @@ window.addEventListener('click', function(e) {
   }
 });
 
+// ---- Dark Mode Toggle ----
 darkModeToggle.addEventListener('click', function() {
   if (customizations.theme === 'dark') {
     customizations.theme = 'light';
@@ -481,8 +526,10 @@ darkModeToggle.addEventListener('click', function() {
   renderCustomizationOptions();
 });
 
+// ---- Notifications ----
 function handleDueNotifications() {
   if (!notificationPermission) return;
+  // Notify for any tasks due today (on page load)
   tasks.forEach(task => {
     if (isDueToday(task) && !task.completed) {
       notify("📅 Task Due!", task.text);
@@ -490,6 +537,7 @@ function handleDueNotifications() {
   });
 }
 
+// ---- Initialization ----
 function init() {
   loadTasks();
   loadPoints();
@@ -500,6 +548,7 @@ function init() {
   requestNotificationPermission();
   handleDueNotifications();
 
+  // Load Google Fonts for custom fonts
   let fontLinks = '';
   FONTS.forEach(f => {
     if (f.family === 'Roboto') fontLinks += '@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap");';
@@ -514,6 +563,9 @@ function init() {
 }
 init();
 
+// ---- Recurring Notifications (poll every 30s) ----
 setInterval(() => {
   handleDueNotifications();
 }, 30000);
+
+});
